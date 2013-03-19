@@ -1,9 +1,11 @@
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.net.InetAddress;
+import java.net.MalformedURLException;
 import java.net.UnknownHostException;
 import java.rmi.Naming;
 import java.rmi.RMISecurityManager;
+import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -69,65 +71,137 @@ public class Main {
 	    return filteredList;
 		
 	}
+	
+	public static void goLocal() {
+		try {
+			LocateRegistry.createRegistry(1099);
+		} catch (RemoteException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}				
+		System.out.printf("registry started at ip %s and port number %d\n", "127.0.0.1", 1099);
+		
+		try {
+			String bindName1 = "//127.0.0.1/ProcessServer1";
+			String bindName2 = "//127.0.0.1/ProcessServer2";
+			Component processServer1 = new Component(1, bindName1);
+			Component processServer2 = new Component(2, bindName2);
+			
+			bindComponentToTheName(processServer1, bindName1);
+			bindComponentToTheName(processServer2, bindName2);
+			
+			
+
+			System.out.println("run processs once");
+			processServer1.runProcess();
+			System.out.println("finished");
+			
+		} catch (RemoteException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
+		
+	}
+	
+	public static void bindComponentToTheName(Component component, String bindName) {
+		
+		try {
+			Naming.rebind(bindName, component);
+		} catch (RemoteException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (MalformedURLException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
+		System.out.printf("bind to the name %s \n", bindName);
+		
+		
+	}
+	public static void goGlobal(int id, int portNum) {
+		String ipAddress = getIp();
+		List<String> neighbourList = getNeighbourListFromProperties();
+		String processName = getPropertyByName("processName");
+		
+		try {
+			LocateRegistry.createRegistry(portNum);
+		} catch (RemoteException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}				
+		//System.out.printf("registry started at ip %s and port number %d\n", ipAddress, portNum);
+			
+		String bindName = "/" + processName + id;
+		String currentProcessName = "//" + ipAddress + bindName;	
+		System.out.println("Current process name is " + currentProcessName);
+		
+		int currentRingIndex = -1;
+		if (neighbourList.contains(currentProcessName))
+		{
+			currentRingIndex = neighbourList.indexOf(currentProcessName);
+		}
+		else
+		{
+			currentProcessName = "//" + "127.0.0.1" + bindName;
+			currentRingIndex = neighbourList.indexOf(currentProcessName);
+		}
+		
+		assert currentRingIndex != -1 : "index of a current machine not found";
+		
+		int neighbourRingIndex = (currentRingIndex + 1) % neighbourList.size();
+		
+		Component processServer = null;
+		try {
+			processServer = new Component(id, neighbourList.get(neighbourRingIndex));
+		} catch (RemoteException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
+		try {
+			Naming.rebind(bindName, processServer);
+		} catch (RemoteException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (MalformedURLException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
+		System.out.printf("bind to the name %s \n", bindName);
+		
+
+		System.out.println("run processs once");
+		processServer.runProcess();
+		System.out.println("finished");
+	}
+	
+	
 	/**
 	 * @param args
 	 */
 	public static void main(String[] args) {
 
-		String ipAddress = getIp();
-		List<String> neighbourList = getNeighbourListFromProperties();
-		String processName = getPropertyByName("processName");
-		
 		System.setSecurityManager(new RMISecurityManager());
-		try {
-			int index = Integer.parseInt(args[0]);
-			int portNum = Integer.parseInt(args[1]);
+		
+		String mode = getPropertyByName("mode");
+		
+		if (mode.contains("LOCAL")) {
 			
-			LocateRegistry.createRegistry(portNum);
-						
-			System.out.printf("registry started at ip %s and port number %d\n", ipAddress, portNum);
-			
-			String bindName = "/" + processName + index;
-			String currentProcessName = "//" + ipAddress + bindName;	
-			System.out.println("Current process name is " + currentProcessName);
-			
-			int currentRingIndex = -1;
-			if (neighbourList.contains(currentProcessName))
-			{
-				currentRingIndex = neighbourList.indexOf(currentProcessName);
-			}
-			else
-			{
-				currentProcessName = "//" + "127.0.0.1" + bindName;
-				currentRingIndex = neighbourList.indexOf(currentProcessName);
-			}
-			
-			assert currentRingIndex != -1 : "index of a current machine not found";
-			
-			int neighbourRingIndex = (currentRingIndex + 1) % neighbourList.size();
-			
-			Component processServer = new Component(index, neighbourList.get(neighbourRingIndex));
-			
-			Naming.rebind(bindName, processServer);
-			System.out.printf("bind to the name %s \n", bindName);
-			
-			boolean sent = false;
-			while (true) {
-				int randomNum = 3000 + (int) (Math.random() * 5000);
-				Thread.sleep(randomNum);
-				
-				// only node 1 sends messages!
-				if (processServer.index == 1 && !sent)
-				{
-					processServer.sendMessage(1);
-					sent = true;
-				}
-
-			}
-		} catch (Exception e) {
-			System.out.println(e.getMessage());
+			System.out.println("Go local");
+			goLocal();
 		}
-
+		else {
+			int id = Integer.parseInt(args[0]);
+			int portNum = Integer.parseInt(args[1]);
+			goGlobal(id, portNum);
+			
+		}
+		
+		
+		
 	}
 
 }
