@@ -71,7 +71,24 @@ public class Main {
 	    return filteredList;
 		
 	}
-	
+	 
+	void createComponents(int numberOfComponents, int[] neighbours) {
+		String namePrefix = "//127.0.0.1/ProcessServer";
+		
+		ArrayList<String> componentNames = new ArrayList<String>();
+		
+		for (int i = 1; i <= numberOfComponents; i++) {
+			String componentName = namePrefix + Integer.toString(i);
+			componentNames.add(componentName);
+			
+			try {
+				Component processServer = new Component(1, null, componentName);
+			} catch (RemoteException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+	}
 	public static void goLocal() {
 		try {
 			LocateRegistry.createRegistry(1099);
@@ -84,8 +101,9 @@ public class Main {
 		try {
 			String bindName1 = "//127.0.0.1/ProcessServer1";
 			String bindName2 = "//127.0.0.1/ProcessServer2";
-			Component processServer1 = new Component(1, bindName1);
-			Component processServer2 = new Component(2, bindName2);
+			
+			Component processServer1 = new Component(1, bindName2);
+			Component processServer2 = new Component(2, bindName1);
 			
 			bindComponentToTheName(processServer1, bindName1);
 			bindComponentToTheName(processServer2, bindName2);
@@ -93,7 +111,10 @@ public class Main {
 			
 
 			System.out.println("run processs once");
-			processServer1.runProcess();
+			Thread thread1 = new Thread(processServer1);
+			Thread thread2 = new Thread(processServer2);
+			thread1.start();
+			thread2.start();
 			System.out.println("finished");
 			
 		} catch (RemoteException e) {

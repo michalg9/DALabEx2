@@ -1,9 +1,11 @@
+import java.io.IOException;
 import java.rmi.Naming;
 import java.rmi.Remote;
 import java.rmi.RemoteException;
 import java.rmi.server.UnicastRemoteObject;
+import java.util.Scanner;
 
-public class Component extends UnicastRemoteObject implements ComponentInterface{
+public class Component extends UnicastRemoteObject implements ComponentInterface, Runnable {
 
 
 	/**
@@ -12,10 +14,12 @@ public class Component extends UnicastRemoteObject implements ComponentInterface
 	private static final long serialVersionUID = 1L;
 	
 	public int id = 0;
+	String name;
 	String neighbour;
 	boolean isActive = true;
 	boolean receiveFlag = false;
 	boolean elected = false;
+	private final Object lock = new Object();
 	
 	public Component(int i, String neighbour) throws RemoteException {
 		super();
@@ -31,6 +35,22 @@ public class Component extends UnicastRemoteObject implements ComponentInterface
 
 	}
 
+	public Component(int i, String neighbour, String name) throws RemoteException {
+		super();
+		
+		this.id = i;
+		this.name = name;
+		this.neighbour = neighbour;
+		this.isActive = true;
+		this.receiveFlag = false;
+		this.elected = false;
+		
+		System.out.printf("Process %d connected was created. Neighbours:\n", this.id);
+		System.out.println(neighbour);
+
+	}
+
+	
 	int lastReceivedId = -1;
 	
 	@Override
@@ -38,9 +58,11 @@ public class Component extends UnicastRemoteObject implements ComponentInterface
 		System.out.printf("Received id: %d", receivedId);
 		System.out.println();
 		
-		lastReceivedId = receivedId;
-		receiveFlag = true;
-		notifyAll();
+		synchronized(lock){
+			lastReceivedId = receivedId;
+			receiveFlag = true;
+			lock.notify();
+		}
 		
 		return 0;
 	}
@@ -56,9 +78,9 @@ public class Component extends UnicastRemoteObject implements ComponentInterface
 			System.out.printf("Error sending message in function sendMessage: %s\n", e.getMessage());
 		}
 	}
-	int tid;
-	int ntid;
-	int nntid;
+	int tid = -1;
+	int ntid = -1;
+	int nntid = -1;
 	public void runProcess() {
 		tid = id;
 		
@@ -73,29 +95,34 @@ public class Component extends UnicastRemoteObject implements ComponentInterface
 	private int processLastReceive() {
 		System.out.println("Receiving");
 		if (!receiveFlag) {
-			System.out.println("block");
+			System.out.println("block enter");
 			try {
-				wait();
+				lock.wait();
 			} catch (InterruptedException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
-			System.out.println("released");
+			System.out.println("block released");
 		}
-		System.out.println("return");
 		receiveFlag = false;
 		return lastReceivedId;
 	}
 	
-	public void activeRun() {
+	public synchronized void activeRun() {
 		sendMessage(tid);
-		ntid = processLastReceive();
+		
+		synchronized(lock){
+			ntid = processLastReceive();
+		}
 		
 		if (ntid == id)
 			this.elected = true;
 		
 		sendMessage(Math.max(tid, ntid));
-		nntid = processLastReceive();
+		
+		synchronized(lock){
+			nntid = processLastReceive();
+		}
 		
 		if (nntid == id)
 			this.elected = true;
@@ -110,10 +137,28 @@ public class Component extends UnicastRemoteObject implements ComponentInterface
 	}
 	
 	public void passiveRun() {
-		tid = processLastReceive();
+		synchronized(lock){
+			tid = processLastReceive();
+		}
 		if (tid == id)
 			this.elected = true;
 		sendMessage(tid);
+	}
+
+	@Override
+	public void run() {
+		while(!elected) {
+			runProcess();
+			
+			// run step by step
+			System.out.printf("Step of %d ended. Press enter...\n", id);
+			int read = -1;
+			Scanner reader = new Scanner(System.in);
+			read=reader.nextInt();
+		}
+		
+		System.out.printf("Process with id %d elected\n", id);
+		
 	}
 
 
