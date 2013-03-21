@@ -72,23 +72,45 @@ public class Main {
 		
 	}
 	 
-	void createComponents(int numberOfComponents, int[] neighbours) {
+	public static ArrayList<Component> createComponents(int numberOfComponents, int[] neighbours) {
 		String namePrefix = "//127.0.0.1/ProcessServer";
 		
-		ArrayList<String> componentNames = new ArrayList<String>();
+		ArrayList<Component> componentList = new ArrayList<Component>();
 		
 		for (int i = 1; i <= numberOfComponents; i++) {
 			String componentName = namePrefix + Integer.toString(i);
-			componentNames.add(componentName);
 			
 			try {
-				Component processServer = new Component(1, null, componentName);
+				Component componentServer = new Component(i, null, componentName);
+				componentList.add(componentServer);
+				bindComponentToTheName(componentServer, componentName);
 			} catch (RemoteException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
 		}
+		
+		for (int i = 1; i <= numberOfComponents; i++) {
+			Component currentComponent = componentList.get(i-1);
+			int neighbourId = neighbours[i-1] - 1;
+			Component neighbourComponent = componentList.get(neighbourId);
+			
+			currentComponent.neighbour = neighbourComponent.name;
+			
+			componentList.set(i-1, currentComponent);
+		}
+		
+		return componentList;
 	}
+	
+	public static void runAllComponents(ArrayList<Component> componentList) {
+		for (Component component : componentList) {
+			Thread thread = new Thread(component);
+			thread.start();
+		}
+	}
+	
+	
 	public static void goLocal() {
 		try {
 			LocateRegistry.createRegistry(1099);
@@ -98,29 +120,32 @@ public class Main {
 		}				
 		System.out.printf("registry started at ip %s and port number %d\n", "127.0.0.1", 1099);
 		
-		try {
-			String bindName1 = "//127.0.0.1/ProcessServer1";
-			String bindName2 = "//127.0.0.1/ProcessServer2";
-			
-			Component processServer1 = new Component(1, bindName2);
-			Component processServer2 = new Component(2, bindName1);
-			
-			bindComponentToTheName(processServer1, bindName1);
-			bindComponentToTheName(processServer2, bindName2);
-			
-			
-
-			System.out.println("run processs once");
-			Thread thread1 = new Thread(processServer1);
-			Thread thread2 = new Thread(processServer2);
-			thread1.start();
-			thread2.start();
-			System.out.println("finished");
-			
-		} catch (RemoteException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
+//		try {
+//			String bindName1 = "//127.0.0.1/ProcessServer1";
+//			String bindName2 = "//127.0.0.1/ProcessServer2";
+//			
+//			Component processServer1 = new Component(1, bindName2);
+//			Component processServer2 = new Component(2, bindName1);
+//			
+//			bindComponentToTheName(processServer1, bindName1);
+//			bindComponentToTheName(processServer2, bindName2);
+//			
+//			
+//
+//			System.out.println("run processs once");
+//			Thread thread1 = new Thread(processServer1);
+//			Thread thread2 = new Thread(processServer2);
+//			thread1.start();
+//			thread2.start();
+//			System.out.println("finished");
+//			
+//		} catch (RemoteException e) {
+//			// TODO Auto-generated catch block
+//			e.printStackTrace();
+//		}
+		
+		int []  neighbours = {4, 5, 1, 2, 3};
+		runAllComponents(createComponents(5, neighbours));
 		
 		
 	}
@@ -193,10 +218,17 @@ public class Main {
 		
 		System.out.printf("bind to the name %s \n", bindName);
 		
+		try {
+			Thread.sleep(5000);
+		} catch (InterruptedException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 
-		System.out.println("run processs once");
-		processServer.runProcess();
-		System.out.println("finished");
+
+		Thread thread = new Thread(processServer);
+		thread.run();
+		
 	}
 	
 	
