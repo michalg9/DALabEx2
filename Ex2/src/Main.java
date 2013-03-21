@@ -241,6 +241,15 @@ public class Main {
 		
 		String mode = getPropertyByName("mode");
 		
+		String runMode = getPropertyByName("run");
+		if (runMode.contains("STEP")) {
+			OutputSettings.stepExecution = true;
+		}
+		else {
+			OutputSettings.stepExecution = false;
+		}
+		
+		
 		if (mode.contains("LOCAL")) {
 			
 			System.out.println("Go local");

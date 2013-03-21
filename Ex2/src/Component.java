@@ -122,23 +122,31 @@ public class Component extends UnicastRemoteObject implements ComponentInterface
 	}
 	
 	public void activeRun() {
+		pauseProg("before sending");
 		sendMessage(tid);
 		
+		pauseProg("before receiving");
 		synchronized(lock){
 			ntid = processLastReceive();
 		}
 		
+		pauseProg("after first receive");
 		if (ntid == id)
 			this.elected = true;
 		
+		pauseProg("second send");
 		sendMessage(Math.max(tid, ntid));
 		
+		pauseProg("second receive");
 		synchronized(lock){
 			nntid = processLastReceive();
 		}
 		
+		pauseProg("chosing if elected");
 		if (nntid == id)
 			this.elected = true;
+		
+		pauseProg("schosing if active");
 		
 		if ( (ntid >= tid) && (ntid >= nntid) ) {
 			tid = ntid;
@@ -147,37 +155,53 @@ public class Component extends UnicastRemoteObject implements ComponentInterface
 			isActive = false;
 		}
 		
+		pauseProg("end of active run");
+		
 	}
 	
 	public void passiveRun() {
+		pauseProg("before passive receive");
 		synchronized(lock){
 			tid = processLastReceive();
 		}
+		pauseProg("passive choosing if elected");
 		if (tid == id)
 			this.elected = true;
+		
+		pauseProg("passive sending");
 		sendMessage(tid);
+		
+		pauseProg("end of passive run");
 	}
 
 	@Override
 	public void run() {
+		int round = 1;
 		tid = id;
 		while(!elected) {
+			pauseProg("start round " + Integer.toString(round));
+			
 			runProcess();
-			
-			System.out.printf("ID: %d, %s - %s, active: %b, received: %b, elected %b\n", id, name, neighbour, isActive, receiveFlag,  elected);
-			
-			
-			System.out.printf("last: %d,  tid: %d, ntid: %d, nntid: %d\n", lastReceivedId, tid, ntid, nntid);
-			// run step by step
-			//System.out.printf("Step of %d ended. Press enter...\n", id);
-			//int read = -1;
-			//Scanner reader = new Scanner(System.in);
-			//read=reader.nextInt();
+
+			pauseProg("end of  round " + Integer.toString(round));
+			round++;
 		}
 		
 		System.out.printf("ELECTED Process with id %d elected\n", id);
 		
 	}
+	
+	public void pauseProg(String msg){
+		System.out.printf(">>STEP: %s\n", msg);
+		System.out.printf("ID: %d, a: %b, r: %b, e %b\n", id, isActive, receiveFlag,  elected);
+		System.out.printf("last: %d,  tid: %d, ntid: %d, nntid: %d\n", lastReceivedId, tid, ntid, nntid);
+		if (OutputSettings.stepExecution) {
+			System.out.println("Press enter to continue...");
+			Scanner keyboard = new Scanner(System.in);
+			keyboard.nextLine();
+		}
+		
+		}
 
 
 }
